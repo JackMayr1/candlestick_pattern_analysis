@@ -1,3 +1,6 @@
+# Tensorflow adapted from API reference as well as tensorflow udemy course
+
+
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -5,16 +8,21 @@ from tensorflow import feature_column
 from tensorflow.keras import layers
 from sklearn.model_selection import train_test_split
 
-csv_file = 'pima-indians-diabetes.csv'
-
-# tf.keras.utils.get_file('petfinder_mini.zip', dataset_url, extract=True, cache_dir='.')
+csv_file = 'datasets/pattern_outputs/CDLENGULFING_records.csv'
 dataframe = pd.read_csv(csv_file)
+dataframe['result'] = 0
+for i, row in dataframe.iterrows():
+    if dataframe.at[i, 'Percent Change'] > 0:
+        dataframe.at[i, 'result'] = 1
+    else:
+        dataframe.at[i, 'result'] = 0
+print(dataframe)
+# setting the darget
+dataframe['target'] = np.where(dataframe['result'] == 1, 0, 1)
 
-# In the original dataset "4" indicates the pet was not adopted.
-dataframe['target'] = np.where(dataframe['Class'] == 1, 0, 1)
-
-# Drop un-used columns.
-dataframe = dataframe.drop(columns=['Class', 'Group'])
+# dropping unused columns
+dataframe = dataframe.drop(columns=['CDL Pattern', 'Date', 'Symbol', 'result', 'Profit', 'Percent Change', 'Trend',
+                                    'bb upper', 'bb middle', 'bb close'])
 
 train, test = train_test_split(dataframe, test_size=0.15)
 train, val = train_test_split(train, test_size=0.15)
@@ -23,7 +31,7 @@ print(len(val), 'validation examples')
 print(len(test), 'test examples')
 
 
-# A utility method to create a tf.data dataset from a Pandas Dataframe
+# A method that alters a pandas dataframe to tf.data dataset
 def df_to_dataset(dataframe, shuffle=True, batch_size=10):
     dataframe = dataframe.copy()
     labels = dataframe.pop('target')
@@ -41,7 +49,7 @@ test_ds = df_to_dataset(test, shuffle=False, batch_size=batch_size)
 
 for feature_batch, label_batch in train_ds.take(1):
     print('Every feature:', list(feature_batch.keys()))
-    print('A batch of ages:', feature_batch['Age'])
+    #print('A batch of WMA:', feature_batch['WMA'])
     print('A batch of targets:', label_batch)
 
 # We will use this batch to demonstrate several types of feature columns
@@ -55,62 +63,28 @@ def demo(feature_column):
     print(feature_layer(example_batch).numpy())
 
 
-BMI_num = feature_column.numeric_column('BMI')
-demo(BMI_num)
+#ADX_num = feature_column.numeric_column('ADX')
+#demo(ADX_num)
 
-age = feature_column.numeric_column('Age')
-age_buckets = feature_column.bucketized_column(age, boundaries=[1, 3, 5])
-demo(age_buckets)
+# trend_type = feature_column.categorical_column_with_vocabulary_list('Type', ['Bullish', 'Bearish'])
 
-#group_type = feature_column.categorical_column_with_vocabulary_list('Type', ['A', 'B', 'C', 'D'])
-
-#group_type_one_hot = feature_column.indicator_column(group_type)
+# group_type_one_hot = feature_column.indicator_column(group_type)
 # demo(group_type_one_hot)
 
-# Notice the input to the embedding column is the categorical column
-# we previously created
-# breed1 = feature_column.categorical_column_with_vocabulary_list(
-#      'Breed1', dataframe.Breed1.unique())
-# breed1_embedding = feature_column.embedding_column(breed1, dimension=8)
-# demo(breed1_embedding)
 
-# breed1_hashed = feature_column.categorical_column_with_hash_bucket(
-#      'Breed1', hash_bucket_size=10)
-# demo(feature_column.indicator_column(breed1_hashed))
-
-crossed_feature = feature_column.crossed_column(['Glucose_concentration', 'Blood_pressure'], hash_bucket_size=10)
-demo(feature_column.indicator_column(crossed_feature))
+# crossed_feature = feature_column.crossed_column(['WMA', 'Close'], hash_bucket_size=10)
+# demo(feature_column.indicator_column(crossed_feature))
 
 feature_columns = []
 
 # numeric cols
-for header in ['Number_pregnant', 'Glucose_concentration', 'Blood_pressure', 'Triceps', 'Insulin', 'BMI', 'Pedigree',
-               'Age']:
+# 'Open', 'Close', 'WMA', 'ADX', 'APO', 'DX', 'ADOSC', 'NATR', 'bb upper', 'bb middle', 'bb close'
+for header in ['Open', 'Close', 'WMA', 'ADX', 'APO', 'DX', 'ADOSC', 'NATR']:
     feature_columns.append(feature_column.numeric_column(header))
 
-# bucketized cols
-age = feature_column.numeric_column('Age')
-age_buckets = feature_column.bucketized_column(age, boundaries=[20, 30, 40, 50, 60, 70, 80])
-feature_columns.append(age_buckets)
-
-# indicator_columns
-# indicator_column_names = ['Type', 'Color1', 'Color2', 'Gender', 'MaturitySize',
-#                          'FurLength', 'Vaccinated', 'Sterilized', 'Health']
-# for col_name in indicator_column_names:
-#  categorical_column = feature_column.categorical_column_with_vocabulary_list(
-#      col_name, dataframe[col_name].unique())
-#  indicator_column = feature_column.indicator_column(categorical_column)
-#  feature_columns.append(indicator_column)
-
-# embedding columns
-# breed1 = feature_column.categorical_column_with_vocabulary_list(
-#      'Breed1', dataframe.Breed1.unique())
-# breed1_embedding = feature_column.embedding_column(breed1, dimension=8)
-# feature_columns.append(breed1_embedding)
-
 # crossed columns
-age_type_feature = feature_column.crossed_column([age_buckets, 'Glucose_concentration'], hash_bucket_size=100)
-feature_columns.append(feature_column.indicator_column(age_type_feature))
+crossed_2_feature = feature_column.crossed_column(['ADX', 'APO'], hash_bucket_size=10)
+feature_columns.append(feature_column.indicator_column(crossed_2_feature))
 
 feature_layer = tf.keras.layers.DenseFeatures(feature_columns)
 
