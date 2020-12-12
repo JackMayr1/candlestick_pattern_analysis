@@ -30,119 +30,97 @@ def download_csv_files():
 # output is datafiles for each of the 62 candlestick patterns, and the data points for each occurence with both data
 # from yahoo finance and from added technical indicators from TA-LIB
 def analysis():
-    rank_file = 'datasets/allpats.csv'
-    with open(rank_file, 'w') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        allpats_fields = ['Pattern', 'Trend', 'Open', 'High', 'Low', 'Close', 'ADOSC', 'Percent Change', 'BB Upper',
-                          'BB Middle', 'BB Lower']
-        csvwriter.writerow(allpats_fields)
-        for numpats in patterns:
-            pattern = numpats
-            datafiles = os.listdir('datasets/daily')
-            pattern_engulfing_days = 0
-            pattern_occurences = 0
-            pattern_total = 0
-            pattern_pat_days = 0
-            pattern_function = getattr(talib, pattern)
-            rank_file = 'datasets/rankings/simple_pattern_rank.csv'
-            with open(rank_file, 'w') as csvfile1:
-                csvwriter1 = csv.writer(csvfile1)
-                # writing the fields
-                fields = ['Pattern', 'Average Percent Gain']
-                csvwriter1.writerow(fields)
-                fields = ['Date', 'Symbol', 'Open', 'Close', 'Trend', 'Profit', 'Percent Change',
-                          'Avg Directional Movement']
-                pattern_filename = 'datasets/pattern_outputs/{}_records.csv'.format(pattern)
-                with open(pattern_filename, 'w') as csvfile2:
-                    # creating a csv writer object
-                    csvwriter2 = csv.writer(csvfile2)
-                    # writing the fields
-                    csvwriter2.writerow(fields)
+    for numpats in patterns:
+        pattern = numpats
+        datafiles = os.listdir('datasets/daily')
+        pattern_engulfing_days = 0
+        pattern_occurences = 0
+        pattern_total = 0
+        pattern_pat_days = 0
+        pattern_function = getattr(talib, pattern)
+        pattern_filename = 'datasets/pattern_outputs/{}_records.csv'.format(pattern)
+        with open(pattern_filename, 'w') as csvfile:
+            csvwriter = csv.writer(csvfile)
+            # writing the fields
+            fields = ['CDL Pattern', 'Date', 'Symbol', 'Open', 'Close', 'Trend', 'WMA', 'ADX', 'APO', 'DX', 'ADOSC',
+                      'NATR', 'bb upper', 'bb middle', 'bb close', 'Profit', 'Percent Change']
+            csvwriter.writerow(fields)
 
-                    for filename in datafiles:
-                        pattern_list = {'symbol': [], 'occurences': [], 'avg_profit': []}
-                        stock_historical_data = 'datasets/daily/{}'.format(filename)
-                        symbol = filename.split('.')[0]
-                        # print test
-                        # print(symbol)
+            for filename in datafiles:
+                # pattern_list = {'symbol': [], 'occurences': [], 'avg_profit': []}
+                # print test
+                # print(symbol)
+                symbol = filename.split('.')[0]
+                stock_historical_data = 'datasets/daily/{}'.format(filename)
+                df = pd.read_csv(stock_historical_data)
+                try:
+                    pat_result = pattern_function(df['Open'], df['High'], df['Low'], df['Close'])
+                    wma_result = talib.WMA(df['Close'], timeperiod=14)
+                    adx_result = talib.ADX(df['High'], df['Low'], df['Close'], timeperiod=14)
+                    apo_result = talib.APO(df['Close'])
+                    dx_result = talib.DX(df['High'], df['Low'], df['Close'], timeperiod=14)
+                    adosc_result = talib.ADOSC(df['High'], df['Low'], df['Close'], df['Volume'], fastperiod=3,
+                                               slowperiod=10)
+                    natr_result = talib.NATR(df['High'], df['Low'], df['Close'], timeperiod=14)
+                    df['CDL Pattern'] = pattern
+                    df['Date'] = pd.to_datetime(df['Date']).dt.date
+                    df[pattern] = pat_result
+                    df['Trend'] = 'None'
+                    df['Profit'] = 0.0
+                    df['Percent Change'] = 0.0
+                    df['WMA'] = wma_result
+                    df['ADX'] = adx_result
+                    df['APO'] = apo_result
+                    df['DX'] = dx_result
+                    df['ADOSC'] = adosc_result
+                    df['NATR'] = natr_result
+                    bb_upper, bb_middle, bb_lower = talib.BBANDS(df['Close'], timeperiod=5, nbdevup=2, nbdevdn=2,
+                                                                 matype=0)
+                    df['bb upper'] = bb_upper
+                    df['bb middle'] = bb_middle
+                    df['bb lower'] = bb_lower
 
-                        df = pd.read_csv(stock_historical_data)
+                    # print(df)
 
-                        try:
-                            pat_result = pattern_function(df['Open'], df['High'], df['Low'], df['Close'])
-                            wma_result = talib.WMA(df['Close'], timeperiod=30)
-                            adx_result = talib.ADX(df['High'], df['Low'], df['Close'], timeperiod=14)
-                            apo_result = talib.APO(df['Close'])
-                            dx_result = talib.DX(df['High'], df['Low'], df['Close'], timeperiod=14)
-                            adosc_result = talib.ADOSC(df['High'], df['Low'], df['Close'], df['Volume'], fastperiod=3,
-                                                       slowperiod=10)
-                            natr_result = talib.NATR(df['High'], df['Low'], df['Close'], timeperiod=14)
-                            df['CDL Pattern'] = pattern
-                            df[pattern] = pat_result
-                            df['Trend'] = 'None'
-                            df['Profit'] = 0.0
-                            df['Percent Change'] = 0.0
-                            df['WMA'] = wma_result
-                            df['ADX'] = adx_result
-                            df['APO'] = apo_result
-                            df['DX'] = dx_result
-                            df['ADOSC'] = adosc_result
-                            df['ADOSC'] = natr_result
-                            bb_upper, bb_middle, bb_lower = talib.BBANDS(df['Close'], timeperiod=5, nbdevup=2, nbdevdn=2, matype=0)
-                            df['bb upper'] = bb_upper
-                            df['bb middle'] = bb_middle
-                            df['bb lower'] = bb_lower
-                            midprice = talib.MIDPRICE()
-                            df['midprice'] = midprice
+                    for i, row in df.iterrows():
+                        if df.at[i, 'Date'] > datetime.date(2020, 2, 1):
+                            try:
+                                df.at[i, 'Open'] = round(df.at[i, 'Open'], 2)
+                                df.at[i, 'Close'] = round(df.at[i, 'Close'], 2)
+                                if df.at[i, pattern] > 0:
+                                    df.at[i, 'Trend'] = 'Bullish'
+                                    # print(df.at[i+1, 'Close'], ' | ',  df.at[i+1, 'Open'])
+                                    df.at[i, 'Profit'] = round(df.at[i + 1, 'Close'] - df.at[i + 1, 'Open'], 2)
+                                    df.at[i, 'Percent Change'] = round(
+                                        (df.at[i, 'Profit'] / df.at[i + 1, 'Open']) * 100, 2)
+                                    flagged_row = [pattern, df.at[i, 'Date'], symbol, df.at[i, 'Open'],
+                                                   df.at[i, 'Close'],
+                                                   df.at[i, 'Trend'], df.at[i, 'WMA'], df.at[i, 'ADX'], df.at[i, 'APO'],
+                                                   df.at[i, 'DX'], df.at[i, 'ADOSC'], df.at[i, 'NATR'],
+                                                   df.at[i, 'bb upper'], df.at[i, 'bb middle'], df.at[i, 'bb lower'],
+                                                   df.at[i, 'Profit'], df.at[i, 'Percent Change']]
+                                    print(flagged_row)
+                                    csvwriter.writerow(flagged_row)
+                                elif df.at[i, '{}'.format(pattern)] < 0:
+                                    # print(df.at[i + 1, 'Close'], ' | ', df.at[i + 1, 'Open'])
+                                    df.at[i, 'Trend'] = 'Bearish'
+                                    df.at[i, 'Profit'] = round(-(df.at[i + 1, 'Close'] - df.at[i + 1, 'Open']), 2)
+                                    df.at[i, 'Percent Change'] = round(
+                                        (df.at[i, 'Profit'] / df.at[i + 1, 'Open']) * 100, 2)
 
-                            # print(df)
+                                    flagged_row = [pattern, df.at[i, 'Date'], symbol, df.at[i, 'Open'],
+                                                   df.at[i, 'Close'],
+                                                   df.at[i, 'Trend'], df.at[i, 'WMA'], df.at[i, 'ADX'], df.at[i, 'APO'],
+                                                   df.at[i, 'DX'], df.at[i, 'ADOSC'], df.at[i, 'NATR'],
+                                                   df.at[i, 'bb upper'], df.at[i, 'bb middle'], df.at[i, 'bb lower'],
+                                                   df.at[i, 'Profit'], df.at[i, 'Percent Change']]
+                                    print(flagged_row)
+                                    csvwriter.writerow(flagged_row)
+                            except:
+                                pass
 
-                            for i, row in df.iterrows():
-                                try:
-                                    df.at[i, 'Open'] = round(df.at[i, 'Open'], 2)
-                                    df.at[i, 'Close'] = round(df.at[i, 'Close'], 2)
-                                    if df.at[i, pattern] > 0:
-                                        df.at[i, 'Trend'] = 'Bullish'
-                                        # print(df.at[i+1, 'Close'], ' | ',  df.at[i+1, 'Open'])
-                                        df.at[i, 'Profit'] = round(df.at[i + 1, 'Close'] - df.at[i + 1, 'Open'], 2)
-                                        df.at[i, 'Percent Change'] = round(
-                                            (df.at[i, 'Profit'] / df.at[i + 1, 'Open']) * 100, 2)
-                                        flagged_row = [df.at[i, 'Date'], symbol, df.at[i, 'Open'], df.at[i, 'Close'],
-                                                       df.at[i, 'Trend'], df.at[i, 'Profit'],
-                                                       df.at[i, 'Percent Change'],
-                                                       df.at[i, 'Avg Directional Movement']]
-                                        csvwriter2.writerow(flagged_row)
-                                        all_pats_flagged_row = [pattern, df.at[i, 'Trend'], df.at[i, 'Open'],
-                                                                df.at[i, 'High'], df.at[i, 'Low'], df.at[i, 'Close'],
-                                                                df.at[i, 'Volume'], df.at[i, 'Percent Change']]
-                                    elif df.at[i, '{}'.format(pattern)] < 0:
-                                        # print(df.at[i + 1, 'Close'], ' | ', df.at[i + 1, 'Open'])
-                                        df.at[i, 'Trend'] = 'Bearish'
-                                        df.at[i, 'Profit'] = round(-(df.at[i + 1, 'Close'] - df.at[i + 1, 'Open']), 2)
-                                        df.at[i, 'Percent Change'] = round(
-                                            (df.at[i, 'Profit'] / df.at[i + 1, 'Open']) * 100, 2)
-
-                                        flagged_row = [df.at[i, 'Date'], symbol, df.at[i, 'Open'], df.at[i, 'Close'],
-                                                       df.at[i, 'Trend'], df.at[i, 'Profit'],
-                                                       df.at[i, 'Percent Change'],
-                                                       df.at[i, 'Avg Directional Movement']]
-                                        csvwriter2.writerow(flagged_row)
-                                except:
-                                    pass
-                            stock_pat_days = df[df[pattern] != 0]
-                            stock_occurences = len(stock_pat_days)
-                            stock_total = sum(df['Percent Change'])
-                            pattern_occurences += stock_occurences
-                            pattern_total += stock_total
-                        except:
-                            pass
-                if pattern_occurences > 0:
-                    pattern_average = pattern_total / pattern_occurences
-                else:
-                    pattern_average = 0
-                row = [pattern, pattern_average]
-                csvwriter1.writerow(row)
-                print(pattern, ': ', pattern_average)
+                except:
+                    pass
 
 
 # runs through each of the output files from analysis() and demonstrates performance if we acted on just that
@@ -232,11 +210,11 @@ def combine_patterns():
                 df3 = df3.remove(df3.at[i])
 
 
-#Function calls for creating datasets
+# Function calls for creating datasets
 
 # download_csv_files()
 analysis()
-pattern_analysis()
+# pattern_analysis()
 # pattern_rank()
 # combine_patterns()
 

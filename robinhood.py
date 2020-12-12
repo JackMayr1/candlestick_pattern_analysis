@@ -1,7 +1,7 @@
 # class allows for interaction with robinhood online broker
 # once a stock ticker is passed to it, with a buy price and sell price,
 # it can put in a buy order and sell condition
-
+# adapted from Part Time Larry
 import robin_stocks as rh
 import click, json
 import robinhood_ui
